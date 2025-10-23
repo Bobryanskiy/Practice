@@ -68,6 +68,7 @@ object NetworkAndDataModule {
     }
 
     @Provides
+    @Singleton
     fun provideUserProgressDao(database: AppDatabase) = database.userProgressDao()
 
     @Provides

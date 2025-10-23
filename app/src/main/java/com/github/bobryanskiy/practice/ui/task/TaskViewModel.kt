@@ -18,8 +18,8 @@ class TaskViewModel @Inject constructor(savedStateHandle: SavedStateHandle, priv
     private val _currentTask = MutableStateFlow<Task?>(null)
     val currentTask: StateFlow<Task?> = _currentTask
 
-    private val _slots = MutableStateFlow<Array<String>>(arrayOf())
-    val slots: StateFlow<Array<String>> = _slots
+    private val _slots = MutableStateFlow<List<String>>(emptyList())
+    val slots: StateFlow<List<String>> = _slots
 
     private val _availableParts = MutableStateFlow<List<String>>(emptyList())
     val availableParts: StateFlow<List<String>> = _availableParts
@@ -36,9 +36,12 @@ class TaskViewModel @Inject constructor(savedStateHandle: SavedStateHandle, priv
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    private val _isAnswerSubmitted = MutableStateFlow(false)
+    val isAnswerSubmitted: StateFlow<Boolean> = _isAnswerSubmitted
+
     val route = savedStateHandle.toRoute<com.github.bobryanskiy.practice.ui.Task>()
     private val topic = route.topic
-    private val difficulty= route.difficulty
+    private val difficulty = route.difficulty
 
     init {
         loadNextTask()
@@ -49,12 +52,14 @@ class TaskViewModel @Inject constructor(savedStateHandle: SavedStateHandle, priv
         _resultMessage.value = ""
 
         if (task is Task.SqlConstructorTask) {
-            _slots.value = Array(task.parts.size) { "" }
+            _slots.value = List(task.parts.size) { "" }
             _availableParts.value = task.shuffledParts.toMutableList()
         }
     }
 
     fun loadNextTask() {
+        if (_isLoading.value) return
+
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
@@ -63,8 +68,7 @@ class TaskViewModel @Inject constructor(savedStateHandle: SavedStateHandle, priv
                 _currentTask.value = task
                 resetStateForNewTask(task)
             } catch (e: Exception) {
-//                _resultMessage.value = "Ошибка загрузки задания: ${e.message}"
-                Log.e("F", e.message.toString())
+                Log.e("TaskViewModel", "Failed to load task", e)
                 _error.value = e.message
             } finally {
                 _isLoading.value = false
@@ -94,30 +98,23 @@ class TaskViewModel @Inject constructor(savedStateHandle: SavedStateHandle, priv
         val currentSlots = _slots.value
         val currentAvailable = _availableParts.value.toMutableList()
 
-        if (slotIndex < currentSlots.size && currentSlots[slotIndex].isEmpty() && currentAvailable.contains(part)) {
-            val newSlots = currentSlots.copyOf()
-            newSlots[slotIndex] = part
+        if (slotIndex in currentSlots.indices && currentSlots[slotIndex].isEmpty() && part in currentAvailable) {
+            val newSlots = _slots.value.toMutableList().apply { this[slotIndex] = part }
             _slots.value = newSlots
-
-            currentAvailable.remove(part)
-            _availableParts.value = currentAvailable
+            _availableParts.value = currentAvailable - part
         }
     }
 
     fun removePartFromSlot(slotIndex: Int) {
         val currentSlots = _slots.value
-        val currentAvailable = _availableParts.value.toMutableList()
+        if (slotIndex !in currentSlots.indices) return
 
-        if (slotIndex < currentSlots.size) {
-            val part = currentSlots[slotIndex]
-            if (part.isNotEmpty()) {
-                val newSlots = currentSlots.copyOf()
-                newSlots[slotIndex] = ""
-                _slots.value = newSlots
+        val part = currentSlots[slotIndex]
+        if (part.isNotEmpty()) {
+            val newSlots = currentSlots.toMutableList().apply { this[slotIndex] = "" }
+            _slots.value = newSlots
 
-                currentAvailable.add(part)
-                _availableParts.value = currentAvailable
-            }
+            _availableParts.value = _availableParts.value + part
         }
     }
 

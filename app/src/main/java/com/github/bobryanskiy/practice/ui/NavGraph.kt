@@ -34,7 +34,10 @@ fun NavGraph() {
         composable<TopicSelection> {
             TopicSelectionScreen(
                 onNavigateToTask = { topic, difficulty ->
-                    navController.navigate(route = Task(topic, difficulty))
+                    navController.navigate(route = Task(topic, difficulty)) {
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 }
             )
         }
